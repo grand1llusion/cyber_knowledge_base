@@ -34,3 +34,53 @@ Always specify the language (python, bash, sql) after the first three backticks 
 ```python
 def scan_network(ip):
     print(f"Scanning {ip}...")
+```
+Bash/Terminal Example:
+Bash
+sudo nmap -sS -p- 192.168.1.1
+
+## 5. Links & ImagesLink Text -> [Google](https://google.com)![Alt Text](Image https://www.google.com/search?q=URL) -> ![Network Diagram](/images/net-diag.png)
+
+## 6. Tables
+### Advanced Table: Vulnerability Scan Report
+Notice the colons (`:`) in the second line. They control alignment.
+
+| Service Name | Port / Protocol | Severity | CVSS Score | Status |
+| :--- | :---: | :---: | ---: | :--- |
+| **HTTP** | `80/tcp` | **HIGH** | 9.8 | 🔴 Open |
+| SSH | `22/tcp` | LOW | 2.1 | 🟢 Secure |
+| *Telnet* | `23/tcp` | CRITICAL | 10.0 | 🔴 **Fix Now** |
+| FTP | `21/tcp` | Moderate | 5.3 | 🟡 Mitigated |
+
+**Alignment Key:**
+* `:---` = Left Align (Default)
+* `:---:` = Center Align (Good for status/short text)
+* `---:` = Right Align (Good for numbers/money)
+
+## 7. Blockquotes"Security is a process, not a product."- Bruce Schneier
+
+## 8. Advanced: Mermaid Diagrams (Charts as Code)
+Gantt Chart (Project Timeline):
+Code snippet
+gantt
+    title Cyber Certification Roadmap
+    dateFormat YYYY-MM-DD
+    section Q1
+    Python Project :active, 2026-01-25, 30d
+    Security+ Prep :2026-02-01, 45d
+
+Sequence Diagram (Network Traffic):
+Code snippet
+sequenceDiagram
+    Client->>Server: SYN
+    Server->>Client: SYN-ACK
+    Client->>Server: ACK
+
+### Pro Tip for You
+Since you are studying **Data Analytics**, you will likely use the **Table** feature often to display sample datasets in your notes without needing screenshots.
+
+**To preview your changes:**
+When editing a file on GitHub.com or in VS Code, there is a **"Preview"** tab (usually an icon that looks like a magnifying glass or an open book) that lets you see what the code looks like rendered before you commit it.
+
+**Next Step:**
+Would you like to try creating that **Python Auto-Scheduler** we discussed to automa
