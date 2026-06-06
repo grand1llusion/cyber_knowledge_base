@@ -130,6 +130,6 @@ Internet
 
 *All attack scenarios documented here are intended for use in isolated lab environments only.*
 
-[← Back to main page](../README.md)
+[← Back to main page](https://github.com/grand1llusion/cyber_knowledge_base)
 
 </div>
