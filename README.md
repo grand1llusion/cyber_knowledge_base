@@ -9,8 +9,8 @@
 ---
 
 [![OT/ICS](https://img.shields.io/badge/OT%2FICS-SecOT%2B%20%7C%20GICSP-red?style=flat-square)](./ot-ics/)
+
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)]()
-[![License](https://img.shields.io/badge/License-MIT-blue?style=flat-square)](./LICENSE)
 
 </div>
 
