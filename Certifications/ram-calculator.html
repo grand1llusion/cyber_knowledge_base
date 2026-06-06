@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>OT Lab — RAM Calculator</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f5f4;
+    color: #1c1c1a;
+    min-height: 100vh;
+    padding: 2rem 1rem;
+  }
+
+  .page { max-width: 720px; margin: 0 auto; }
+
+  h1 { font-size: 22px; font-weight: 500; margin-bottom: 4px; }
+  .subtitle { font-size: 14px; color: #5f5e5a; margin-bottom: 2rem; }
+  .subtitle a { color: #185fa5; text-decoration: none; }
+  .subtitle a:hover { text-decoration: underline; }
+
+  .card {
+    background: #fff;
+    border: 0.5px solid rgba(0,0,0,0.12);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .slider-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 1rem;
+  }
+  .slider-label { font-size: 15px; font-weight: 500; white-space: nowrap; }
+  input[type="range"] {
+    flex: 1;
+    accent-color: #185fa5;
+    height: 4px;
+    cursor: pointer;
+  }
+  .slider-val {
+    font-size: 18px;
+    font-weight: 500;
+    min-width: 60px;
+    text-align: right;
+    color: #185fa5;
+  }
+
+  .presets { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 0.25rem; }
+  .preset-btn {
+    font-size: 12px;
+    padding: 4px 12px;
+    border-radius: 6px;
+    border: 0.5px solid rgba(0,0,0,0.15);
+    background: #f1efe8;
+    color: #444441;
+    cursor: pointer;
+    transition: all 0.12s;
+  }
+  .preset-btn:hover { background: #d3d1c7; }
+  .preset-btn.active { background: #185fa5; color: #e6f1fb; border-color: #0c447c; }
+
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 1rem;
+  }
+  .summary-card {
+    background: #f1efe8;
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    text-align: center;
+  }
+  .summary-label { font-size: 12px; color: #5f5e5a; margin-bottom: 4px; }
+  .summary-val { font-size: 20px; font-weight: 500; }
+  .summary-val.ok { color: #3b6d11; }
+  .summary-val.warn { color: #854f0b; }
+  .summary-val.danger { color: #a32d2d; }
+
+  .bar-wrap { height: 10px; background: #d3d1c7; border-radius: 99px; overflow: hidden; margin-bottom: 1.5rem; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.3s, background 0.3s; }
+
+  .banner {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.5;
+    margin-bottom: 1.5rem;
+    display: none;
+  }
+  .banner.warn { background: #faeeda; color: #633806; border: 0.5px solid #ef9f27; display: block; }
+  .banner.danger { background: #fcebeb; color: #501313; border: 0.5px solid #e24b4a; display: block; }
+  .banner.ok { background: #eaf3de; color: #173404; border: 0.5px solid #639922; display: block; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  thead th {
+    font-size: 11px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #5f5e5a;
+    text-align: left;
+    padding: 0 0 8px 0;
+    border-bottom: 0.5px solid rgba(0,0,0,0.1);
+  }
+  thead th:not(:first-child) { text-align: right; }
+  tbody tr { border-bottom: 0.5px solid rgba(0,0,0,0.07); }
+  tbody tr:last-child { border-bottom: none; }
+  tbody td { padding: 9px 0; vertical-align: middle; }
+  tbody td:not(:first-child) { text-align: right; }
+
+  .vm-name { font-weight: 500; }
+  .vm-zone {
+    font-size: 11px;
+    padding: 2px 7px;
+    border-radius: 4px;
+    margin-left: 6px;
+    font-weight: 400;
+  }
+  .zone-it { background: #e6f1fb; color: #0c447c; }
+  .zone-dmz { background: #faeeda; color: #633806; }
+  .zone-ot { background: #fcebeb; color: #501313; }
+  .zone-fw { background: #f1efe8; color: #444441; }
+
+  .status-pill {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .pill-ok { background: #eaf3de; color: #27500a; }
+  .pill-reduced { background: #faeeda; color: #633806; }
+  .pill-skip { background: #fcebeb; color: #791f1f; }
+  .pill-optional { background: #f1efe8; color: #5f5e5a; }
+
+  .note-row td { font-size: 12px; color: #5f5e5a; padding-top: 3px !important; padding-bottom: 6px !important; }
+
+  .section-head { font-size: 13px; font-weight: 500; color: #5f5e5a; margin: 1.5rem 0 0.75rem; text-transform: uppercase; letter-spacing: 0.07em; }
+
+  .tip-box {
+    background: #e6f1fb;
+    border: 0.5px solid #85b7eb;
+    border-radius: 8px;
+    padding: 0.875rem 1rem;
+    font-size: 13px;
+    color: #0c447c;
+    line-height: 1.6;
+    margin-top: 1rem;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-size: 13px;
+    color: #185fa5;
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+  }
+  .back-link:hover { text-decoration: underline; }
+
+  @media (max-width: 480px) {
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .slider-val { font-size: 15px; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <a class="back-link" href="README.md">← Back to setup guide</a>
+  <h1>OT home lab — RAM calculator</h1>
+  <p class="subtitle">Adjust your host RAM to see recommended allocations for each VM. Based on the <a href="README.md">full lab setup guide</a>.</p>
+
+  <div class="card">
+    <div class="slider-row">
+      <span class="slider-label">Host RAM</span>
+      <input type="range" id="ram-slider" min="8" max="64" step="4" value="16">
+      <span class="slider-val" id="ram-display">16 GB</span>
+    </div>
+    <div class="presets">
+      <button class="preset-btn" onclick="setRam(8)">8 GB</button>
+      <button class="preset-btn active" onclick="setRam(16)">16 GB</button>
+      <button class="preset-btn" onclick="setRam(24)">24 GB</button>
+      <button class="preset-btn" onclick="setRam(32)">32 GB</button>
+      <button class="preset-btn" onclick="setRam(64)">64 GB</button>
+    </div>
+  </div>
+
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="summary-label">VMs allocated</div>
+      <div class="summary-val" id="stat-allocated">0 GB</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Host OS headroom</div>
+      <div class="summary-val" id="stat-headroom">0 GB</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-label">Lab tier</div>
+      <div class="summary-val" id="stat-tier">—</div>
+    </div>
+  </div>
+
+  <div class="bar-wrap"><div class="bar-fill" id="usage-bar"></div></div>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="card">
+    <table>
+      <thead>
+        <tr>
+          <th>VM</th>
+          <th>RAM</th>
+          <th>Priority</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="vm-table"></tbody>
+    </table>
+
+    <div class="tip-box" id="tip-box"></div>
+  </div>
+
+  <div class="section-head">What each VM does</div>
+  <div class="card">
+    <table>
+      <thead><tr><th>VM</th><th style="text-align:left">Purpose in lab</th><th>Zone</th></tr></thead>
+      <tbody>
+        <tr><td class="vm-name">pfSense</td><td style="text-align:left; font-size:13px; color:#5f5e5a; padding-left:0">Firewall — controls all traffic between IT, DMZ, and OT zones</td><td><span class="status-pill pill-ok">Firewall</span></td></tr>
+        <tr><td class="vm-name">OpenPLC</td><td style="text-align:left; font-size:13px; color:#5f5e5a">Simulates a PLC — runs ladder logic, listens on Modbus TCP port 502</td><td><span class="status-pill" style="background:#fcebeb;color:#791f1f">OT</span></td></tr>
+        <tr><td class="vm-name">ScadaBR</td><td style="text-align:left; font-size:13px; color:#5f5e5a">SCADA/HMI front end — visualises your simulated process (tank, pump)</td><td><span class="status-pill" style="background:#fcebeb;color:#791f1f">OT</span></td></tr>
+        <tr><td class="vm-name">DMZ Ubuntu</td><td style="text-align:left; font-size:13px; color:#5f5e5a">Sits between IT and OT — acts as OPC-UA bridge, lateral movement target</td><td><span class="status-pill" style="background:#faeeda;color:#633806">DMZ</span></td></tr>
+        <tr><td class="vm-name">Wazuh SIEM</td><td style="text-align:left; font-size:13px; color:#5f5e5a">Collects logs from all VMs — detects rogue Modbus writes and lateral movement</td><td><span class="status-pill" style="background:#e6f1fb;color:#0c447c">IT</span></td></tr>
+        <tr><td class="vm-name">Kali Linux</td><td style="text-align:left; font-size:13px; color:#5f5e5a">Attack VM — runs PyModbus scripts and Nmap scans during practice scenarios</td><td><span class="status-pill" style="background:#e6f1fb;color:#0c447c">IT</span></td></tr>
+        <tr><td class="vm-name">Windows 10</td><td style="text-align:left; font-size:13px; color:#5f5e5a">Optional analyst workstation — useful for pfSense web UI and SIEM dashboards</td><td><span class="status-pill" style="background:#e6f1fb;color:#0c447c">IT</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const VMS = [
+  { name: 'pfSense',     zone: 'fw',  priority: 1, full: 1,  min: 1,  note: 'Required — this is your firewall. Cannot be reduced.' },
+  { name: 'OpenPLC',     zone: 'ot',  priority: 1, full: 2,  min: 1,  note: 'Required for OT simulation. Can run at 1 GB with degraded performance.' },
+  { name: 'ScadaBR',     zone: 'ot',  priority: 1, full: 2,  min: 1,  note: 'Required to visualise the process. Java-based — 1 GB is tight but workable.' },
+  { name: 'DMZ Ubuntu',  zone: 'dmz', priority: 2, full: 2,  min: 1,  note: 'Needed for zone boundary exercises. Can run at 1 GB.' },
+  { name: 'Wazuh SIEM',  zone: 'it',  priority: 2, full: 4,  min: 2,  note: 'Can run at 2 GB — indexing will be slower but functional.' },
+  { name: 'Kali Linux',  zone: 'it',  priority: 2, full: 4,  min: 2,  note: 'Can run at 2 GB for basic Modbus/Nmap tasks. Heavier tools may be slow.' },
+  { name: 'Windows 10',  zone: 'it',  priority: 3, full: 4,  min: 2,  note: 'Optional. Skip entirely on low-RAM systems — use your host for browser/pfSense UI.' },
+];
+
+const HOST_RESERVE = 4;
+
+function zoneClass(z) {
+  return z === 'it' ? 'zone-it' : z === 'dmz' ? 'zone-dmz' : z === 'ot' ? 'zone-ot' : 'zone-fw';
+}
+function zoneLabel(z) {
+  return z === 'it' ? 'IT' : z === 'dmz' ? 'DMZ' : z === 'ot' ? 'OT' : 'Firewall';
+}
+
+function allocate(hostRam) {
+  const budget = hostRam - HOST_RESERVE;
+  let remaining = budget;
+  const result = VMS.map(vm => ({ ...vm, alloc: 0, status: 'skip' }));
+
+  for (const vm of result) {
+    if (vm.priority === 1) {
+      if (remaining >= vm.full) { vm.alloc = vm.full; vm.status = 'ok'; remaining -= vm.full; }
+      else if (remaining >= vm.min) { vm.alloc = vm.min; vm.status = 'reduced'; remaining -= vm.min; }
+      else { vm.alloc = 0; vm.status = 'skip'; }
+    }
+  }
+  for (const vm of result) {
+    if (vm.priority === 2) {
+      if (remaining >= vm.full) { vm.alloc = vm.full; vm.status = 'ok'; remaining -= vm.full; }
+      else if (remaining >= vm.min) { vm.alloc = vm.min; vm.status = 'reduced'; remaining -= vm.min; }
+      else { vm.alloc = 0; vm.status = 'skip'; }
+    }
+  }
+  for (const vm of result) {
+    if (vm.priority === 3) {
+      if (remaining >= vm.full) { vm.alloc = vm.full; vm.status = 'ok'; vm.status = 'optional'; remaining -= vm.full; }
+      else { vm.alloc = 0; vm.status = 'skip'; }
+    }
+  }
+  return result;
+}
+
+function render(hostRam) {
+  const allocs = allocate(hostRam);
+  const totalAlloc = allocs.reduce((s, v) => s + v.alloc, 0);
+  const headroom = hostRam - totalAlloc;
+  const pct = Math.round((totalAlloc / hostRam) * 100);
+
+  document.getElementById('ram-display').textContent = hostRam + ' GB';
+  document.getElementById('stat-allocated').textContent = totalAlloc + ' GB';
+
+  const hEl = document.getElementById('stat-headroom');
+  hEl.textContent = headroom + ' GB';
+  hEl.className = 'summary-val ' + (headroom >= 4 ? 'ok' : headroom >= 2 ? 'warn' : 'danger');
+
+  const skipped = allocs.filter(v => v.status === 'skip' && v.priority < 3).length;
+  const reduced = allocs.filter(v => v.status === 'reduced').length;
+  const tierEl = document.getElementById('stat-tier');
+  let tier, tierClass;
+  if (hostRam >= 32) { tier = 'Full lab'; tierClass = 'ok'; }
+  else if (skipped === 0 && reduced <= 1) { tier = 'Comfortable'; tierClass = 'ok'; }
+  else if (skipped === 0) { tier = 'Reduced'; tierClass = 'warn'; }
+  else { tier = 'Minimal'; tierClass = 'danger'; }
+  tierEl.textContent = tier;
+  tierEl.className = 'summary-val ' + tierClass;
+
+  const bar = document.getElementById('usage-bar');
+  bar.style.width = Math.min(pct, 100) + '%';
+  bar.style.background = pct > 90 ? '#e24b4a' : pct > 75 ? '#ef9f27' : '#639922';
+
+  const banner = document.getElementById('banner');
+  if (hostRam < 12) {
+    banner.className = 'banner danger';
+    banner.textContent = '⚠ 8 GB is very tight. Only the three core OT VMs (pfSense, OpenPLC, ScadaBR) will run simultaneously. You cannot run attack or detection scenarios — consider adding RAM or running VMs one group at a time.';
+  } else if (skipped > 0) {
+    banner.className = 'banner warn';
+    banner.textContent = '⚠ Some VMs are skipped at this RAM level. Run the core OT zone first, then shut those VMs down before starting Wazuh or Kali. Snapshots are your best friend here.';
+  } else if (reduced > 0) {
+    banner.className = 'banner warn';
+    banner.textContent = 'Some VMs are running below recommended RAM. The lab will work but may be sluggish, particularly Wazuh indexing and ScadaBR rendering. Close browser tabs and other host applications while running.';
+  } else {
+    banner.className = 'banner ok';
+    banner.textContent = '✓ You have enough RAM to run the full lab comfortably with headroom for your host OS.';
+  }
+
+  const tbody = document.getElementById('vm-table');
+  tbody.innerHTML = '';
+  allocs.forEach(vm => {
+    const pillClass = vm.status === 'ok' ? 'pill-ok' : vm.status === 'reduced' ? 'pill-reduced' : vm.status === 'optional' ? 'pill-optional' : 'pill-skip';
+    const pillText = vm.status === 'ok' ? 'Full' : vm.status === 'reduced' ? 'Reduced' : vm.status === 'optional' ? 'Optional — fits' : 'Skip';
+    const allocText = vm.alloc > 0 ? vm.alloc + ' GB' : '—';
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td><span class="vm-name">${vm.name}</span><span class="vm-zone ${zoneClass(vm.zone)}">${zoneLabel(vm.zone)}</span></td><td>${allocText}</td><td style="color:#5f5e5a;font-size:13px">${vm.priority === 1 ? 'Core' : vm.priority === 2 ? 'Important' : 'Optional'}</td><td><span class="status-pill ${pillClass}">${pillText}</span></td>`;
+    tbody.appendChild(tr);
+    if (vm.status !== 'ok' && vm.status !== 'optional') {
+      const noteRow = document.createElement('tr');
+      noteRow.className = 'note-row';
+      noteRow.innerHTML = `<td colspan="4">${vm.note}</td>`;
+      tbody.appendChild(noteRow);
+    }
+  });
+
+  const tips = [];
+  if (hostRam <= 16) tips.push('Run VMs in groups: start pfSense + OpenPLC + ScadaBR first for OT scenarios, then shut down and swap in Wazuh + Kali for detection practice.');
+  if (reduced > 0) tips.push('In VMware: set each VM\'s RAM in VM Settings → Memory before powering on. You can change it without reinstalling the OS.');
+  if (hostRam >= 32) tips.push('At 32 GB you can run all VMs simultaneously and still have headroom for the host. Consider enabling VMware memory ballooning for extra efficiency.');
+  tips.push('pfSense can always stay running — it uses minimal RAM and shutting it down breaks connectivity for all other VMs.');
+
+  document.getElementById('tip-box').innerHTML = '<strong>Tips for your setup:</strong><br>' + tips.map(t => '• ' + t).join('<br>');
+
+  document.querySelectorAll('.preset-btn').forEach(btn => {
+    btn.classList.toggle('active', parseInt(btn.textContent) === hostRam);
+  });
+}
+
+function setRam(val) {
+  document.getElementById('ram-slider').value = val;
+  render(val);
+}
+
+document.getElementById('ram-slider').addEventListener('input', function() {
+  render(parseInt(this.value));
+});
+
+render(16);
+</script>
+</body>
+</html>
