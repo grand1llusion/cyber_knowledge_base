@@ -4,7 +4,7 @@
 
 **A curated reference library for cybersecurity certification study, hands-on lab work, and operational threat intelligence.**
 
-*Maintained by an active-duty U.S. Army Cyber Officer | TS/SCI*
+*Maintained solely by Bradley Papke*
 
 ---
 
