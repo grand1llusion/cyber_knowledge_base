@@ -1,0 +1,6 @@
+﻿deploy/build/
+deploy/function.zip
+deploy/*.json
+deploy/placeholder.html
+__pycache__/
+*.pyc
