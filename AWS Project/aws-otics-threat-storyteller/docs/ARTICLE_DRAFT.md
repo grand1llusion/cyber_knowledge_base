@@ -95,5 +95,5 @@ the thing keeps working when nobody's watching it run.
 
 ## Try it / see the code
 
-- Live site: [SITE URL]
-- Code: [REPO/CODE LINK]
+- Live site: [[Amazon Bedrock Site]](http://otics-storyteller-209211309990.s3-website-us-east-1.amazonaws.com/)
+- Code: [[REPO/CODE LINK]](https://github.com/grand1llusion/cyber_knowledge_base/tree/main/AWS%20Project)
