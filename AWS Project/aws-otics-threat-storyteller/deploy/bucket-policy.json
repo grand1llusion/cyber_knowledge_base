@@ -6,7 +6,7 @@
       "Effect": "Allow",
       "Principal": "*",
       "Action": "s3:GetObject",
-      "Resource": "arn:aws:s3:::otics-storyteller-209211309990/*"
+      "Resource": "arn:aws:s3:::otics-storyteller-123456789012/*"
     }
   ]
 }
