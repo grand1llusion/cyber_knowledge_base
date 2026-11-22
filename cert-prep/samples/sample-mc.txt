@@ -1,0 +1,52 @@
+---
+format: certprep-deck/1
+deck: Sample deck · Networking basics
+cert:
+kind: mc
+---
+
+### Q1 · Networking
+
+Which port does HTTPS use by default?
+
+A. 80
+B. 443
+C. 22
+D. 3389
+
+**Answer:** B
+
+**Explanation:**
+HTTPS listens on TCP 443 by default. 80 is HTTP, 22 is SSH and 3389 is RDP.
+
+---
+
+### Q2 · Networking
+
+Which TWO protocols are cleartext and should be replaced in a hardened environment?
+
+A. Telnet
+B. SSH
+C. FTP
+D. SFTP
+
+**Answer:** A, C
+
+**Explanation:**
+Telnet and FTP send credentials in cleartext. SSH and SFTP encrypt the session.
+
+---
+
+### Q3 · Networking
+
+What does an IP address of 169.254.x.x on a Windows host usually mean?
+
+A. The host has a static address
+B. The host could not reach a DHCP server
+C. The host is on a VPN
+D. The host is a domain controller
+
+**Explanation:**
+No answer key on purpose: this item shows how self-check questions behave. (169.254/16 is APIPA — DHCP failed.)
+
+**Flags:** self-check

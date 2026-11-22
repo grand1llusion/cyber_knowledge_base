@@ -10,6 +10,8 @@
 
 [![OT/ICS](https://img.shields.io/badge/OT%2FICS-SecOT%2B%20%7C%20GICSP-red?style=flat-square)](./ot-ics/)
 
+[![Cert Prep Hub](https://img.shields.io/badge/Cert%20Prep%20Hub-PenTest%2B%20%7C%20CySA%2B-blue?style=flat-square)](https://grand1llusion.github.io/cyber_knowledge_base/cert-prep/)
+
 [![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)]()
 
 </div>
@@ -40,6 +42,18 @@ Each section covers:
 | [Section overview](./ot-ics/) | Certifications, frameworks, threat intel, and incident summaries |
 | [Home lab setup guide](./ot-ics/ot-ics-homelab.md) | Full IT/OT lab using VMware — pfSense, OpenPLC, ScadaBR, Wazuh, Kali |
 | [RAM calculator](https://grand1llusion.github.io/cyber_knowledge_base/ot-ics/ram-calculator.html) | Interactive tool — adjust VM allocations to your host specs |
+
+---
+
+### 🟦 [Cert Prep Hub](https://grand1llusion.github.io/cyber_knowledge_base/cert-prep/)
+> Practice questions · PBQ labs · timed exam simulation · domain mastery · attack range
+
+| Resource | Description |
+|----------|-------------|
+| [Open the hub](https://grand1llusion.github.io/cyber_knowledge_base/cert-prep/) | Certification cards, practice, flashcards, PBQ labs, exam simulation, PenTest+ range |
+| [Deck format](./cert-prep/FORMAT.md) | How to write MC decks, PBQ labs and range scenarios the hub can load |
+
+> The hub ships the engine only. Question decks stay private and are loaded into your browser.
 
 ---
 

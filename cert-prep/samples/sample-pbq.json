@@ -1,0 +1,10 @@
+{"format":"certprep-pbq/1","id":"sample-pbq","deck":"Sample deck · PBQ","cert":"","kind":"pbq","items":[
+ {"qid":"S1","title":"Spot the cleartext services","domain":"Networking",
+  "instructions":"Review the scan, then answer both parts.",
+  "evidence":[{"type":"terminal","title":"$ nmap -sV 10.0.0.5","text":"PORT    STATE SERVICE VERSION\n21/tcp  open  ftp     vsftpd 3.0.3\n22/tcp  open  ssh     OpenSSH 8.9\n23/tcp  open  telnet  Linux telnetd\n443/tcp open  https   nginx 1.24"}],
+  "parts":[
+   {"type":"choice","title":"Part 1","prompt":"Select the TWO cleartext services to disable.","options":["FTP (21)","SSH (22)","Telnet (23)","HTTPS (443)"],"answer":[0,2]},
+   {"type":"slots","title":"Part 2","prompt":"Build the command that produced this output.","bank":["nmap","-sV","-sU","10.0.0.5","10.0.0.0/24"],"template":[{"slot":"Tool"}," ",{"slot":"Flag"}," ",{"slot":"Target"}],"answer":[0,1,3]}
+  ],
+  "explanation":"FTP and Telnet are cleartext. The VERSION column means -sV was used against the single host 10.0.0.5."}
+]}
