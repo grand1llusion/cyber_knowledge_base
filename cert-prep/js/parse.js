@@ -77,7 +77,7 @@
     push(); return items;
   }
   function parseText(text,fname){
-    text=text.replace(/\r\n/g,'\n').replace(/^\uFEFF/,'');
+    text=text.replace(/\r\n/g,'\n').replace(/^\uFEFF/,'').replace(/^\s+/,'');
     if(/^\s*\{/.test(text)) return parseJSON(JSON.parse(text),fname);
     const [meta,body]=frontmatter(text);
     let items;
