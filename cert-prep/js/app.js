@@ -41,7 +41,7 @@ function route(){
   const h=(location.hash||'#/').slice(1).split('/').filter(Boolean);
   $$('.topbar nav a').forEach(a=>a.classList.toggle('on', a.getAttribute('href')==='#/'+(h[0]||'')));
   window.scrollTo(0,0);
-  if(Session.active && h[0]!=='run'){ Session.active=null; clearInterval(Session.tick); }
+  if(Session.active && h[0]!=='run'){ persist(Session.active); Session.active=null; clearInterval(Session.tick); }
   (routes[h[0]||'']||routes[''])(h.slice(1));
 }
 window.addEventListener('hashchange',route);
@@ -52,6 +52,7 @@ routes['']=()=>{
   view().innerHTML=`
   <h1>Certification prep</h1>
   <p class="lede">Pick a certification to practise questions, run performance-based labs, sit a timed exam or step through the range. Load your own deck files to add questions.</p>
+  ${resumeBanner()}
   <div class="certs">${cs.map(c=>{ const ds=decksFor(c.id); const n=ds.reduce((a,d)=>a+d.items.length,0); const m=mastery(c);
     return `<a class="cert${c.status==='planned'&&!n?' planned':''}" href="#/cert/${c.id}">
       <div class="row" style="justify-content:space-between"><span class="code">${esc(c.vendor)} ${esc(c.code)}</span>${c.status==='planned'?'<span class="pill">Planned</span>':`<span class="pill ${m.ready>=75?'ok':''}">${m.ready}% ready</span>`}</div>
@@ -64,7 +65,7 @@ routes['']=()=>{
   ${mine.length?`<table class="list"><tr><th>Deck</th><th>Questions</th><th></th></tr>${mine.map(d=>`<tr><td>${esc(d.title)}</td><td>${d.items.length}</td><td class="row">${d.kind==='pbq'?`<button class="btn quiet" data-f="${esc(d.id)}">Open labs</button>`:`<button class="btn quiet" data-q="${esc(d.id)}">Quiz</button><button class="btn quiet" data-f="${esc(d.id)}">Flashcards</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">No personal decks yet. Drop a .md or .json deck below, or <button class="btn quiet" id="samp">load the sample decks</button> to try every question type.</div>'}
   <h2>Load decks</h2>
   ${dropZone()}`;
-  wireDrop(); const sb=$('#samp'); if(sb) sb.onclick=async()=>{ try{ for(const f of ['samples/sample-mc.txt','samples/sample-pbq.json']){ const r=await fetch(f); Store.putDeck(Parse.parseText(await r.text(),f.split('/').pop())); } route(); }catch(e){ toast('Samples load only when the hub is served over the web, not opened as a file.'); } };
+  wireDrop(); wireResume(); const sb=$('#samp'); if(sb) sb.onclick=async()=>{ try{ for(const f of ['samples/sample-mc.txt','samples/sample-pbq.json']){ const r=await fetch(f); Store.putDeck(Parse.parseText(await r.text(),f.split('/').pop())); } route(); }catch(e){ toast('Samples load only when the hub is served over the web, not opened as a file.'); } };
   $$('[data-q]').forEach(b=>b.onclick=()=>Session.startQuiz(Store.decks()[b.dataset.q].items.map(it=>({...it,deckId:b.dataset.q,kind:'mc'})),{title:Store.decks()[b.dataset.q].title}));
   $$('[data-f]').forEach(b=>b.onclick=()=>Store.decks()[b.dataset.f].kind==='pbq'?Session.startPBQ(Store.decks()[b.dataset.f].items.map(it=>({...it,kind:'pbq'})),0,{title:Store.decks()[b.dataset.f].title}):Session.startFlash(Store.decks()[b.dataset.f].items.map(it=>({...it,deckId:b.dataset.f,kind:'mc'})),{title:Store.decks()[b.dataset.f].title}));
 };
@@ -94,7 +95,8 @@ routes.cert=([cid,tab='overview'])=>{
   view().innerHTML=`<p class="small"><a href="#/">All certifications</a></p>
     <h1>${esc(c.vendor)} ${esc(c.name)} <span class="code muted" style="font-size:1rem;font-family:var(--mono)">${esc(c.code)}</span></h1>
     ${c.exam?`<p class="muted" style="margin:0">Up to ${c.exam.questions} questions · ${c.exam.minutes} minutes · passing ${esc(c.exam.pass)}</p>`:'<p class="muted" style="margin:0">Exam details not set yet.</p>'}
-    <div class="tabs">${tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="location.hash='#/cert/${c.id}/${k}'">${l}</button>`).join('')}</div><div id="tab"></div>`;
+    ${resumeBanner(c.id)}<div class="tabs">${tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="location.hash='#/cert/${c.id}/${k}'">${l}</button>`).join('')}</div><div id="tab"></div>`;
+  wireResume();
   ({overview:certOverview,practice:certPractice,flash:certFlash,pbq:certPBQ,exam:certExam,range:certRange}[tab]||certOverview)(c,$('#tab'));
 };
 function certOverview(c,el){
@@ -190,16 +192,34 @@ routes.progress=()=>{
 /* ---------- sessions ---------- */
 const Session={active:null};
 window.Session=Session;
-routes.run=()=>{ if(!Session.active) return go('#/'); Session.active.render(); };
+routes.run=()=>{ if(!Session.active){ if(!Session.resume()) go('#/'); return; } Session.active.render(); };
+function itemIndex(){ const m={}; Store.deckList().forEach(d=>d.items.forEach(it=>{ m[it.id]=Object.assign({deckId:d.id,deckTitle:d.title,kind:d.kind},it); })); return m; }
+function persist(s){ if(s&&s.snap) Store.saveSession(s.snap()); }
+function guard(o){ if(o&&o.restore) return true; const old=Store.session(); if(old&&old.type==='exam'&&!confirm('You have an unfinished exam. Starting something new will discard it. Continue?')) return false; return true; }
+const fmtLeft=ms=>{ ms=Math.max(0,ms); const m=Math.floor(ms/60e3); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}`; };
+Session.resume=()=>{ const o=Store.session(); if(!o) return false; const idx=itemIndex(); const items=(o.ids||[]).map(id=>idx[id]).filter(Boolean);
+  if(!items.length){ Store.clearSession(); toast('The saved session’s decks are no longer loaded.'); return false; }
+  const opts={title:o.title,cert:certFor(o.cert),restore:o};
+  if(o.type==='quiz') Session.startQuiz(items,opts); else if(o.type==='flash') Session.startFlash(items,opts); else if(o.type==='exam') Session.startExam(items,Object.assign(opts,{minutes:o.minutes})); else { Store.clearSession(); return false; }
+  return true; };
+function resumeBanner(cid){ const o=Store.session(); if(!o||(cid&&o.cert!==cid)) return '';
+  const n=(o.ids||[]).length; const where=o.type==='exam'?`question ${o.i+1} of ${n}, ${Object.keys(o.ans||{}).length} answered, ${fmtLeft(o.remaining)} left (timer paused)`:`${o.type==='flash'?'card':'question'} ${Math.min(o.i+1,n)} of ${n}`;
+  return `<div class="panel row" style="justify-content:space-between;margin:0 0 20px;border-color:var(--amber);background:#FFF8E5"><div><b>Unfinished ${o.type==='exam'?'exam':o.type==='flash'?'flashcards':'practice'}:</b> ${esc(o.title)}<div class="muted small">Stopped at ${where} · ${new Date(o.at).toLocaleString()}</div></div><div class="row"><button class="btn" id="rsm">Resume</button><button class="btn quiet" id="dsc">Discard</button></div></div>`; }
+function wireResume(){ const r=$('#rsm'), d=$('#dsc'); if(r) r.onclick=()=>{ location.hash='#/run'; }; if(d) d.onclick=()=>{ if(confirm('Discard the unfinished session? Answers you already checked stay recorded.')){ Store.clearSession(); route(); } }; }
+['pagehide','beforeunload'].forEach(ev=>window.addEventListener(ev,()=>persist(Session.active)));
+document.addEventListener('visibilitychange',()=>{ if(document.hidden) persist(Session.active); });
 function header(s,extra=''){ return `<div class="row" style="justify-content:space-between;max-width:860px"><div><a href="javascript:history.back()" class="small">Leave session</a><h1 style="font-size:1.4rem;margin-top:4px">${esc(s.title)}</h1></div>${extra}</div>`; }
 function qMeta(it,cert){ const f=(it.flags||[]); const P=Store.progress()[it.id];
   return `<div class="meta"><span class="pill">${esc(it.qid)}</span><span class="pill">${esc(cert?examDomain(cert,it):it.domain||'')}</span>${f.includes('claude-keyed')?'<span class="pill amber" title="Answer key proposed by Claude — review it">Claude-keyed</span>':''}${f.includes('check-exhibit')?'<span class="pill amber" title="The source refers to an exhibit that may be missing">Exhibit may be missing</span>':''}${!it.answer.length?'<span class="pill">Self-check</span>':''}${P?.flag?'<span class="pill amber">Flagged</span>':''}</div>`; }
 
 Session.startQuiz=(items,o)=>{
+  if(!guard(o)) return;
   const s={type:'quiz',title:o.title,cert:o.cert,items,i:0,right:0,done:0,sel:[],answered:false};
+  if(o.restore){ const r=o.restore; s.i=Math.min(r.i||0,items.length); s.right=r.right||0; s.done=r.done||0; s.miss=new Set(r.miss||[]); }
+  s.snap=()=>({type:'quiz',title:s.title,cert:s.cert&&s.cert.id,ids:s.items.map(x=>x.id),i:s.answered?s.i+1:s.i,right:s.right,done:s.done,miss:[...(s.miss||[])],at:Date.now()});
   s.render=()=>{
-    const it=s.items[s.i]; if(!it){ view().innerHTML=header(s)+`<div class="q"><h2 style="margin-top:0">Session complete</h2><p class="score">${s.right} of ${s.done} graded answers right (${pct(s.right,s.done)}%)</p><div class="row"><button class="btn" id="again">Retry missed</button><button class="btn quiet" onclick="history.back()">Back to hub</button></div></div>`;
-      $('#again').onclick=()=>{ const miss=s.items.filter(x=>s.miss&&s.miss.has(x.id)); if(!miss.length) return toast('Nothing missed.'); Session.startQuiz(miss,o); }; return; }
+    const it=s.items[s.i]; if(!it){ Store.clearSession(); s.snap=null; view().innerHTML=header(s)+`<div class="q"><h2 style="margin-top:0">Session complete</h2><p class="score">${s.right} of ${s.done} graded answers right (${pct(s.right,s.done)}%)</p><div class="row"><button class="btn" id="again">Retry missed</button><button class="btn quiet" onclick="history.back()">Back to hub</button></div></div>`;
+      $('#again').onclick=()=>{ const miss=s.items.filter(x=>s.miss&&s.miss.has(x.id)); if(!miss.length) return toast('Nothing missed.'); Session.startQuiz(miss,Object.assign({},o,{restore:null})); }; return; }
     const multi=it.answer.length>1;
     view().innerHTML=header(s,`<span class="muted">${s.i+1} / ${s.items.length}</span>`)+`<div class="progressline"><i style="width:${pct(s.i,s.items.length)}%"></i></div>
     <div class="q">${qMeta(it,s.cert)}<div class="stem">${md(it.stem)}</div>${multi?`<p class="muted small">Choose ${it.answer.length}.</p>`:''}
@@ -213,19 +233,22 @@ Session.startQuiz=(items,o)=>{
       acts.innerHTML=(it.answer.length?'':`<button class="btn quiet" id="sg1">I got it</button><button class="btn quiet" id="sg0">I missed it</button>`)+`<button class="btn quiet" id="flg">${Store.progress()[it.id]?.flag?'Unflag':'Flag'}</button><button class="btn" id="nx">Next question</button>`;
       if(!it.answer.length){ $('#sg1').onclick=()=>{Store.record(it.id,true,{selfGraded:true});next();}; $('#sg0').onclick=()=>{Store.record(it.id,false,{selfGraded:true});next();}; }
       $('#flg').onclick=()=>{ const f=Store.toggleFlag(it.id); $('#flg').textContent=f?'Unflag':'Flag'; };
-      $('#nx').onclick=next; $('#nx').focus(); };
+      $('#nx').onclick=next; $('#nx').focus(); persist(s); };
     const next=()=>{ s.i++; s.sel=[]; s.answered=false; s.render(); };
     $$('.opt').forEach(b=>b.onclick=()=>{ if(s.answered) return; const k=b.dataset.k;
       if(multi){ s.sel=s.sel.includes(k)?s.sel.filter(x=>x!==k):[...s.sel,k]; b.classList.toggle('sel'); acts.innerHTML=s.sel.length?'<button class="btn" id="sub">Check answer</button>':''; if(s.sel.length) $('#sub').onclick=reveal; }
       else { s.sel=[k]; reveal(); } });
     if(!it.answer.length && !multi){ acts.innerHTML='<button class="btn quiet" id="rv">Show explanation</button>'; $('#rv').onclick=reveal; }
+    persist(s);
   };
   Session.active=s; location.hash==='#/run'?s.render():go('#/run');
 };
 
 Session.startFlash=(items,o)=>{
-  const s={title:o.title,cert:o.cert,items,i:0,flip:false};
-  s.render=()=>{ const it=s.items[s.i]; if(!it){ view().innerHTML=header(s)+'<div class="q"><h2 style="margin-top:0">Deck finished</h2><button class="btn" onclick="history.back()">Back to hub</button></div>'; return; }
+  if(!guard(o)) return;
+  const s={title:o.title,cert:o.cert,items,i:o.restore?Math.min(o.restore.i||0,items.length):0,flip:false};
+  s.snap=()=>({type:'flash',title:s.title,cert:s.cert&&s.cert.id,ids:s.items.map(x=>x.id),i:s.i,at:Date.now()});
+  s.render=()=>{ const it=s.items[s.i]; if(!it){ Store.clearSession(); s.snap=null; view().innerHTML=header(s)+'<div class="q"><h2 style="margin-top:0">Deck finished</h2><button class="btn" onclick="history.back()">Back to hub</button></div>'; return; }
     const back=`<div class="side">Answer</div><div class="score">${it.answer.length?it.answer.map(k=>k+'. '+esc((it.options.find(o=>o.key===k)||{}).text||'')).join('<br>'):'No answer key yet'}</div>${it.explanation?`<div class="expl">${md(it.explanation)}</div>`:''}`;
     const front=`<div class="side">Question · click or press space to flip</div><div class="stem">${md(it.stem)}</div>${it.options.map(op=>`<div><b>${op.key}.</b> ${md(op.text)}</div>`).join('')}`;
     view().innerHTML=header(s,`<span class="muted">${s.i+1} / ${s.items.length}</span>`)+`<div class="progressline"><i style="width:${pct(s.i,s.items.length)}%"></i></div><div class="card" id="card" tabindex="0">${qMeta(it,s.cert)}${s.flip?back:front}</div>
@@ -233,6 +256,7 @@ Session.startFlash=(items,o)=>{
     const flip=()=>{s.flip=!s.flip;s.render();}; $('#card').onclick=flip; $('#card').onkeydown=e=>{if(e.key===' '){e.preventDefault();flip();}}; $('#card').focus();
     const nx=ok=>{ if(ok!=null) Store.record(it.id,ok,{selfGraded:!it.answer.length}); s.i++; s.flip=false; s.render(); };
     if($('#fl')) $('#fl').onclick=flip; if($('#m0')) {$('#m0').onclick=()=>nx(false); $('#m1').onclick=()=>nx(true);} $('#sk').onclick=()=>nx(null);
+    persist(s);
   };
   Session.active=s; location.hash==='#/run'?s.render():go('#/run');
 };
@@ -248,7 +272,10 @@ Session.startPBQ=(items,idx,o)=>{
 };
 
 Session.startExam=(items,o)=>{
+  if(!guard(o)) return;
   const s={title:o.cert.name+' exam simulation',cert:o.cert,items,i:0,ans:{},flag:new Set(),pbqState:{},end:Date.now()+o.minutes*60e3,start:Date.now(),minutes:o.minutes};
+  if(o.restore){ const r=o.restore; s.i=Math.min(r.i||0,items.length-1); s.ans=r.ans||{}; s.flag=new Set(r.flag||[]); s.pbqState=r.pbqState||{}; s.end=Date.now()+Math.max(0,r.remaining); s.start=Date.now()-(r.elapsed||0); }
+  s.snap=()=>({type:'exam',title:s.title,cert:s.cert.id,ids:s.items.map(x=>x.id),i:s.i,ans:s.ans,flag:[...s.flag],pbqState:s.pbqState,remaining:s.end-Date.now(),elapsed:Date.now()-s.start,minutes:s.minutes,at:Date.now()});
   const fmt=ms=>{ ms=Math.max(0,ms); const m=Math.floor(ms/60e3), x=Math.floor(ms%60e3/1e3); return `${Math.floor(m/60)}:${String(m%60).padStart(2,'0')}:${String(x).padStart(2,'0')}`; };
   s.render=()=>{
     const it=s.items[s.i];
@@ -260,7 +287,7 @@ Session.startExam=(items,o)=>{
     $('#end').onclick=()=>{ const left=s.items.length-Object.keys(s.ans).length; if(confirm(left?`${left} items unanswered. Submit anyway?`:'Submit the exam?')) finish(); };
     const qa=$('#qa'); const nav=`<div class="row" style="margin-top:14px"><button class="btn quiet" id="pv" ${s.i?'':'disabled'}>Previous</button><button class="btn quiet" id="fg">${s.flag.has(it.id)?'Unflag':'Flag for review'}</button><button class="btn" id="nx" ${s.i<s.items.length-1?'':'disabled'}>Next</button></div>`;
     if(it.kind==='pbq'){ qa.innerHTML=`<div class="meta"><span class="pill">PBQ ${s.i+1} of ${s.items.length}</span></div><div id="pbq"></div>`+nav;
-      PBQ.render($('#pbq',qa),it,{mode:'exam',state:s.pbqState[it.id],onChange:(st,score)=>{ s.pbqState[it.id]=st; s.ans[it.id]={score}; const b=$(`.navgrid button[data-j="${s.i}"]`); b&&b.classList.add('ans'); }});
+      PBQ.render($('#pbq',qa),it,{mode:'exam',state:s.pbqState[it.id],onChange:(st,score)=>{ s.pbqState[it.id]=st; s.ans[it.id]={score}; persist(s); const b=$(`.navgrid button[data-j="${s.i}"]`); b&&b.classList.add('ans'); }});
     } else {
       const sel=s.ans[it.id]?.sel||[]; const multi=it.answer.length>1;
       qa.innerHTML=`<div class="q"><div class="meta"><span class="pill">Question ${s.i+1} of ${s.items.length}</span></div><div class="stem">${md(it.stem)}</div>${multi?`<p class="muted small">Choose ${it.answer.length}.</p>`:''}${it.options.map(op=>`<button class="opt ${sel.includes(op.key)?'sel':''}" data-k="${op.key}"><span class="k">${op.key}</span><span>${md(op.text)}</span></button>`).join('')}</div>`+nav;
@@ -268,9 +295,10 @@ Session.startExam=(items,o)=>{
     }
     $('#pv').onclick=()=>{s.i--;s.render();}; $('#nx').onclick=()=>{s.i++;s.render();};
     $('#fg').onclick=()=>{ s.flag.has(it.id)?s.flag.delete(it.id):s.flag.add(it.id); s.render(); };
+    persist(s);
   };
   const finish=()=>{
-    clearInterval(Session.tick); const c=s.cert; let pts=0; const byD={}; const rows=[];
+    clearInterval(Session.tick); Store.clearSession(); s.snap=null; const c=s.cert; let pts=0; const byD={}; const rows=[];
     s.items.forEach(it=>{ const d=examDomain(c,it); const b=byD[d]=byD[d]||{n:0,pts:0}; b.n++; let score=0;
       if(it.kind==='pbq'){ score=(s.ans[it.id]?.score||0)/100; Store.record(it.id,score>=.8,{lastScore:Math.round(score*100)}); }
       else { const sel=s.ans[it.id]?.sel||[]; const ok=sel.length===it.answer.length&&sel.every(k=>it.answer.includes(k)); score=ok?1:0; Store.record(it.id,ok); if(!ok) rows.push({it,sel}); }
@@ -286,7 +314,7 @@ Session.startExam=(items,o)=>{
       $('#rv').onclick=()=>Session.startQuiz(rows.map(r=>r.it),{title:'Missed in exam',cert:c});
     }}; Session.active.render();
   };
-  Session.tick=setInterval(()=>{ const t=$('#tm'); const left=s.end-Date.now(); if(t){ t.textContent=fmt(left); t.classList.toggle('low',left<10*60e3);} if(left<=0){ alert('Time is up. Your exam is being scored.'); finish(); } },1000);
+  let beat=0; Session.tick=setInterval(()=>{ if(++beat%10===0) persist(s); const t=$('#tm'); const left=s.end-Date.now(); if(t){ t.textContent=fmt(left); t.classList.toggle('low',left<10*60e3);} if(left<=0){ alert('Time is up. Your exam is being scored.'); finish(); } },1000);
   Session.active=s; location.hash==='#/run'?s.render():go('#/run');
 };
 
