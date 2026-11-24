@@ -15,7 +15,9 @@
     const title=meta.deck||meta.title||fname.replace(/\.[^.]+$/,'');
     const id=meta.id||slug((meta.cert?meta.cert+'-':'')+title);
     items.forEach((it,i)=>{ it.qid=it.qid||('Q'+(i+1)); it.id=id+'#'+it.qid; });
-    return {id,title,cert:meta.cert||'',kind:kind||meta.kind||'mc',source:meta.source||fname,loadedAt:Date.now(),items};
+    const d={id,title,cert:meta.cert||'',kind:kind||meta.kind||'mc',source:meta.source||fname,loadedAt:Date.now(),items};
+    if(meta.role) d.role=meta.role; if(meta.sections) d.sections=meta.sections;
+    return d;
   }
   function parseCompTIA(body){
     const parts=body.split(/^###\s+/m).slice(1); const items=[];
@@ -76,10 +78,33 @@
     }
     push(); return items;
   }
+  /* certprep-study/1: "## L01-01 · Title", a "tier: … | domain: … | minutes: n" line, "kw:" line, markdown body, then a :::check … ::: block */
+  function parseStudy(body){
+    const parts=body.split(/^## (?=\S+ · )/m).slice(1); const items=[];
+    for(const raw of parts){
+      const lines=raw.split('\n'); const head=lines.shift(); const i=head.indexOf(' · ');
+      const it={qid:head.slice(0,i).trim(),title:head.slice(i+3).trim(),tier:'core',kw:[],checks:[],trap:''};
+      it.short=it.title.split(' · ')[0];
+      while(lines.length&&/^(tier|kw):/.test(lines[0])){ const l=lines.shift();
+        if(l.startsWith('kw:')) it.kw=l.slice(3).split(',').map(x=>x.trim()).filter(Boolean);
+        else l.split('|').forEach(p=>{ const j=p.indexOf(':'); if(j<0) return; const k=p.slice(0,j).trim(), v=p.slice(j+1).trim(); if(k==='minutes'||k==='bank') it[k]=+v; else it[k]=v; }); }
+      let text=lines.join('\n'); const cm=text.match(/^:::check[ \t]*\n([\s\S]*?)^:::[ \t]*$/m);
+      if(cm){ text=text.slice(0,cm.index)+text.slice(cm.index+cm[0].length); let q=null;
+        for(const ln of cm[1].split('\n')){ let m;
+          if((m=ln.match(/^trap:\s*(.*)/))) it.trap=m[1];
+          else if((m=ln.match(/^q:\s*(.*)/))){ q={q:m[1],options:[],answer:[],why:''}; it.checks.push(q); }
+          else if(q&&(m=ln.match(/^-\s+(\*?)(.*)$/))){ const k=L[q.options.length]; q.options.push({key:k,text:m[2].trim()}); if(m[1]) q.answer.push(k); }
+          else if(q&&(m=ln.match(/^why:\s*(.*)/))) q.why=m[1]; } }
+      it.body=text.trim(); if(it.domain) it.examDomain=it.domain; items.push(it);
+    }
+    return items;
+  }
   function parseText(text,fname){
     text=text.replace(/\r\n/g,'\n').replace(/^\uFEFF/,'').replace(/^\s+/,'');
     if(/^\s*\{/.test(text)) return parseJSON(JSON.parse(text),fname);
     const [meta,body]=frontmatter(text);
+    if(meta.format==='certprep-study/1'||meta.kind==='study'){ const items=parseStudy(body); if(!items.length) throw new Error(fname+': no lessons found.');
+      const d=finish(meta,items,fname,'study'); const sec={}; String(meta.sections||'').split(';').forEach(p=>{ const i=p.indexOf('='); if(i>0) sec[p.slice(0,i).trim()]=p.slice(i+1).trim(); }); d.sections=sec; return d; }
     let items;
     if(/^###\s+(Q\d|Question\s+\d)/m.test(body)) items=parseCompTIA(body);
     else if(/^###\s+[A-Z]\d+\.\s/m.test(body)) items=parseTestBank(body);

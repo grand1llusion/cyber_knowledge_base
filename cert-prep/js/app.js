@@ -18,8 +18,9 @@ function examDomain(cert,item){
   for(const d of cert.domains){ if(d.name.toLowerCase()===tag||(d.aliases||[]).some(a=>a.toLowerCase()===tag)) return d.name; }
   return item.domain||'Unsorted';
 }
-function itemsFor(cid,kind){ const out=[]; decksFor(cid).forEach(d=>{ if(kind&&d.kind!==kind) return; d.items.forEach(it=>out.push(Object.assign({deckId:d.id,deckTitle:d.title,kind:d.kind},it))); }); return out; }
-const keyed=it=>it.kind==='pbq'||(it.answer&&it.answer.length);
+function itemsFor(cid,kind){ const out=[]; decksFor(cid).forEach(d=>{ if(kind&&d.kind!==kind) return; d.items.forEach(it=>out.push(Object.assign({deckId:d.id,deckTitle:d.title,kind:d.kind,role:d.role},it))); }); return out; }
+const kindLabel=d=>d.kind==='pbq'?'PBQ':d.kind==='study'?'Study lessons':d.role==='drill'?'Drill (not scored)':'Multiple choice';
+const keyed=it=>it.role!=='drill'&&(it.kind==='pbq'||(it.kind==='mc'&&it.answer&&it.answer.length));
 function mastery(cert){
   const P=Store.progress(); const items=itemsFor(cert.id).filter(keyed);
   const by={}; cert.domains.forEach(d=>by[d.name]={total:0,mastered:0,seen:0,right:0,wrong:0});
@@ -58,11 +59,11 @@ routes['']=()=>{
       <div class="row" style="justify-content:space-between"><span class="code">${esc(c.vendor)} ${esc(c.code)}</span>${c.status==='planned'?'<span class="pill">Planned</span>':`<span class="pill ${m.ready>=75?'ok':''}">${m.ready}% ready</span>`}</div>
       <div class="name">${esc(c.name)}</div>
       ${wbar(c)}
-      <div class="stats"><span><b>${ds.filter(d=>d.kind==='mc').reduce((a,d)=>a+d.items.length,0)}</b> questions</span><span><b>${ds.filter(d=>d.kind==='pbq').reduce((a,d)=>a+d.items.length,0)}</b> PBQs</span><span><b>${ds.length}</b> decks</span></div>
+      <div class="stats"><span><b>${ds.filter(d=>d.kind==='mc'&&d.role!=='drill').reduce((a,d)=>a+d.items.length,0)}</b> questions</span><span><b>${ds.filter(d=>d.kind==='pbq').reduce((a,d)=>a+d.items.length,0)}</b> PBQs</span>${ds.some(d=>d.kind==='study')?`<span><b>${ds.filter(d=>d.kind==='study').reduce((a,d)=>a+d.items.length,0)}</b> lessons</span>`:''}<span><b>${ds.length}</b> decks</span></div>
     </a>`; }).join('')}</div>
   <h2>My decks</h2>
   <p class="muted small" style="margin-top:-6px">Decks that don't name a certification land here, like your WGU quiz-engine decks.</p>
-  ${mine.length?`<table class="list"><tr><th>Deck</th><th>Questions</th><th></th></tr>${mine.map(d=>`<tr><td>${esc(d.title)}</td><td>${d.items.length}</td><td class="row">${d.kind==='pbq'?`<button class="btn quiet" data-f="${esc(d.id)}">Open labs</button>`:`<button class="btn quiet" data-q="${esc(d.id)}">Quiz</button><button class="btn quiet" data-f="${esc(d.id)}">Flashcards</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">No personal decks yet. Drop a .md or .json deck below, or <button class="btn quiet" id="samp">load the sample decks</button> to try every question type.</div>'}
+  ${mine.length?`<table class="list"><tr><th>Deck</th><th>Questions</th><th></th></tr>${mine.map(d=>`<tr><td>${esc(d.title)}</td><td>${d.items.length}</td><td class="row">${d.kind==='study'?'<span class="muted small">Assign it to a certification on the Decks page</span>':d.kind==='pbq'?`<button class="btn quiet" data-f="${esc(d.id)}">Open labs</button>`:`<button class="btn quiet" data-q="${esc(d.id)}">Quiz</button><button class="btn quiet" data-f="${esc(d.id)}">Flashcards</button>`}</td></tr>`).join('')}</table>`:'<div class="empty">No personal decks yet. Drop a .md or .json deck below, or <button class="btn quiet" id="samp">load the sample decks</button> to try every question type.</div>'}
   <h2>Load decks</h2>
   ${dropZone()}`;
   wireDrop(); wireResume(); const sb=$('#samp'); if(sb) sb.onclick=async()=>{ try{ for(const f of ['samples/sample-mc.txt','samples/sample-pbq.json']){ const r=await fetch(f); Store.putDeck(Parse.parseText(await r.text(),f.split('/').pop())); } route(); }catch(e){ toast('Samples load only when the hub is served over the web, not opened as a file.'); } };
@@ -82,7 +83,7 @@ async function loadFiles(files){
     try{ const t=await file.text(); const d=Parse.parseText(t,file.name);
       if(d.backup){ Store.importAll(d.backup); msgs.push(file.name+': progress restored'); continue; }
       if(d.range){ const R=Store.prefs().ranges||{}; R[d.range.id]=d.range; Store.setPref('ranges',R); msgs.push(file.name+': range scenario loaded'); continue; }
-      if(Store.putDeck(d)) msgs.push(`${file.name}: ${d.items.length} ${d.kind==='pbq'?'PBQs':'questions'}${certFor(d.cert)?' → '+certFor(d.cert).name:' → My decks'}`);
+      if(Store.putDeck(d)) msgs.push(`${file.name}: ${d.items.length} ${d.kind==='pbq'?'PBQs':d.kind==='study'?'lessons':'questions'}${certFor(d.cert)?' → '+certFor(d.cert).name:' → My decks'}`);
     }catch(e){ msgs.push(file.name+': '+e.message); }
   }
   alert(msgs.join('\n')); route();
@@ -91,23 +92,23 @@ async function loadFiles(files){
 /* ---------- cert view ---------- */
 routes.cert=([cid,tab='overview'])=>{
   const c=certFor(cid); if(!c) return go('#/');
-  const tabs=[['overview','Overview'],['practice','Practice'],['flash','Flashcards'],['pbq','PBQ lab'],['exam','Exam simulation']]; if(c.range) tabs.push(['range','Range']);
+  const tabs=[['overview','Overview'],['study','Study'],['practice','Practice'],['flash','Flashcards'],['pbq','PBQ lab'],['exam','Exam simulation']]; if(c.range) tabs.push(['range','Range']);
   view().innerHTML=`<p class="small"><a href="#/">All certifications</a></p>
     <h1>${esc(c.vendor)} ${esc(c.name)} <span class="code muted" style="font-size:1rem;font-family:var(--mono)">${esc(c.code)}</span></h1>
     ${c.exam?`<p class="muted" style="margin:0">Up to ${c.exam.questions} questions · ${c.exam.minutes} minutes · passing ${esc(c.exam.pass)}</p>`:'<p class="muted" style="margin:0">Exam details not set yet.</p>'}
     ${resumeBanner(c.id)}<div class="tabs">${tabs.map(([k,l])=>`<button class="${k===tab?'on':''}" onclick="location.hash='#/cert/${c.id}/${k}'">${l}</button>`).join('')}</div><div id="tab"></div>`;
   wireResume();
-  ({overview:certOverview,practice:certPractice,flash:certFlash,pbq:certPBQ,exam:certExam,range:certRange}[tab]||certOverview)(c,$('#tab'));
+  ({overview:certOverview,study:(c,el)=>StudyView.tab(c,el),practice:certPractice,flash:certFlash,pbq:certPBQ,exam:certExam,range:certRange}[tab]||certOverview)(c,$('#tab'));
 };
 function certOverview(c,el){
   const m=mastery(c); const ds=decksFor(c.id);
-  el.innerHTML=`${wbar(c,true)}
+  el.innerHTML=`${StudyView.summary(c)}${wbar(c,true)}
    <div class="legend">${c.domains.map(d=>{const b=m.by[d.name];return `<div><span>${esc(d.name)} <span class="muted">${d.weight}%</span></span><span>${b.mastered}/${b.total} mastered · ${pct(b.right,b.right+b.wrong)}% acc.</span></div>`;}).join('')}</div>
    ${Object.entries(m.by).filter(([k,v])=>v.extra).length?`<p class="muted small">Untagged or unmapped items: ${Object.entries(m.by).filter(([k,v])=>v.extra).map(([k,v])=>esc(k)+' ('+v.total+')').join(', ')}</p>`:''}
    ${c.note?`<p class="muted small">${esc(c.note)}</p>`:''}
    <p class="muted small">A segment's width is its share of the exam; the fill is the share of its questions you've answered right at least twice in a row.</p>
    <h2>Decks</h2>
-   ${ds.length?`<table class="list"><tr><th>Deck</th><th>Type</th><th>Items</th><th>Unkeyed</th></tr>${ds.map(d=>`<tr><td>${esc(d.title)}</td><td>${d.kind==='pbq'?'PBQ':'Multiple choice'}</td><td>${d.items.length}</td><td>${d.kind==='pbq'?'—':d.items.filter(i=>!i.answer.length).length}</td></tr>`).join('')}</table>`:`<div class="empty">No decks loaded for ${esc(c.name)}. Load the deck files from your Drive folder <b>Certifications / ${esc(c.vendor)}_${esc(c.name)}</b> / decks.</div>`}
+   ${ds.length?`<table class="list"><tr><th>Deck</th><th>Type</th><th>Items</th><th>Unkeyed</th></tr>${ds.map(d=>`<tr><td>${esc(d.title)}</td><td>${kindLabel(d)}</td><td>${d.items.length}</td><td>${d.kind!=='mc'?'—':d.items.filter(i=>!i.answer.length).length}</td></tr>`).join('')}</table>`:`<div class="empty">No decks loaded for ${esc(c.name)}. Load the deck files from your Drive folder <b>Certifications / ${esc(c.vendor)}_${esc(c.name)}</b> / decks.</div>`}
    <h2>Load decks</h2>${dropZone()}
    <h2>Recent exams</h2>${examHistory(c)}`;
   wireDrop();
@@ -169,7 +170,7 @@ function certRange(c,el){
 routes.decks=()=>{
   const ds=Store.deckList();
   view().innerHTML=`<h1>Decks</h1><p class="lede">Every deck loaded in this browser. Change a deck's certification to move it between hubs.</p>
-  ${ds.length?`<table class="list"><tr><th>Deck</th><th>Certification</th><th>Items</th><th>Source file</th><th></th></tr>${ds.map(d=>`<tr><td>${esc(d.title)}<div class="muted small">${d.kind==='pbq'?'PBQ':'Multiple choice'}</div></td><td><select data-c="${esc(d.id)}"><option value="">My decks</option>${certs().map(c=>`<option value="${c.id}" ${certFor(d.cert)?.id===c.id?'selected':''}>${esc(c.name)} ${esc(c.code)}</option>`).join('')}</select></td><td>${d.items.length}</td><td class="small muted">${esc(d.source)}</td><td><button class="btn danger" data-x="${esc(d.id)}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No decks loaded yet.</div>'}
+  ${ds.length?`<table class="list"><tr><th>Deck</th><th>Certification</th><th>Items</th><th>Source file</th><th></th></tr>${ds.map(d=>`<tr><td>${esc(d.title)}<div class="muted small">${kindLabel(d)}</div></td><td><select data-c="${esc(d.id)}"><option value="">My decks</option>${certs().map(c=>`<option value="${c.id}" ${certFor(d.cert)?.id===c.id?'selected':''}>${esc(c.name)} ${esc(c.code)}</option>`).join('')}</select></td><td>${d.items.length}</td><td class="small muted">${esc(d.source)}</td><td><button class="btn danger" data-x="${esc(d.id)}">Remove</button></td></tr>`).join('')}</table>`:'<div class="empty">No decks loaded yet.</div>'}
   <h2>Load decks</h2>${dropZone()}
   <h2>Deck formats</h2><p class="muted">Markdown (CompTIA-style blocks, or the WGU quiz-engine Test Bank and Simple layouts) and JSON. The full spec is in <a href="https://github.com/grand1llusion/cyber_knowledge_base/blob/main/cert-prep/FORMAT.md" target="_blank" rel="noopener">FORMAT.md</a>.</p>`;
   wireDrop();
@@ -318,5 +319,6 @@ Session.startExam=(items,o)=>{
   Session.active=s; location.hash==='#/run'?s.render():go('#/run');
 };
 
+window.Hub={certFor,decksFor,itemsFor,examDomain,routes,go,route,view,header,pct,keyed};
 document.addEventListener('DOMContentLoaded',route);
 })();

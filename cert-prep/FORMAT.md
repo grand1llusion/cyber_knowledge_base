@@ -40,6 +40,8 @@ Anything after this line until the next question.
 * `**Exam domain:**` overrides the domain used for mastery when the source tag comes from an older exam version.
 * Flags the hub understands: `claude-keyed` (answer proposed by Claude — review it), `check-exhibit` (stem refers to an exhibit that may be missing), `ocr-fixed`, `self-check`.
 
+Front matter `role: drill` marks a practice-only deck (for example a glossary drill): it shows up in Practice and Flashcards but never counts toward mastery or the exam simulation.
+
 ### WGU quiz-engine decks
 
 Both dialects from the WGU quiz engine load unchanged:
@@ -93,6 +95,42 @@ A PBQ is instructions + evidence on the left + graded parts on the right.
 
 The PenTest+ range lives in `range/pt0-003.js`. A new scenario can ship in the repo (public content) or be dropped on the hub as a `.json` file (stays in your browser).
 
-## 4. Progress backups
+## 4. Study lessons (Markdown)
+
+`certprep-study/1` decks drive the **Study** tab: short lessons, each with an exam trap and quick-check questions.
+
+```markdown
+---
+format: certprep-study/1
+kind: study
+cert: pt0-003
+id: pt0-003-study
+title: PenTest+ study lessons
+sections: 01=Before you begin; 02=Pre-engagement activities
+---
+
+## L01-01 · What penetration testing is · Other topic covered
+tier: core | domain: Engagement Management | section: 01 | minutes: 3
+kw: penetration test, vulnerability scan, authorized
+
+Lesson body in ordinary Markdown: ### headings, lists, tables, code fences,
+Obsidian callouts (> [!tip] Exam focus), **bold**, *italic*, `code`.
+
+:::check
+trap: The one-line exam trap shown under the lesson.
+q: Which activity best distinguishes a penetration test?
+- Using automated scanners
+- *Exploiting findings to prove impact
+- Producing a report
+why: Explanation shown after answering.
+:::
+```
+
+* `tier` is `core`, `likely` or `deep`. The Study tab shows Core by default; the other tiers are opt-in filters.
+* `domain` must match one of the cert's exam domains. `minutes` is the reading estimate.
+* `kw` drives **Practice related questions**: multiple-choice items that match at least two keywords.
+* Each quick-check answer is recorded as `<deck>#<lesson>#qcN`; answering them all marks the lesson read.
+
+## 5. Progress backups
 
 Progress → Export writes `certprep-backup/1`. Drop it on any **Load decks** area to merge it on another device.

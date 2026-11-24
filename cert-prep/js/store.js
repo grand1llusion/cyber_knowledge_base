@@ -16,6 +16,7 @@
       if(extra) Object.assign(r,extra);
       p[itemId]=r; wr(K.prog,p); return r;
     },
+    markRead(itemId,on){ const p=S.progress(); const r=p[itemId]||{seen:0,right:0,wrong:0,box:1}; if(on) r.read=Date.now(); else delete r.read; r.last=Date.now(); p[itemId]=r; wr(K.prog,p); },
     toggleFlag(itemId){ const p=S.progress(); const r=p[itemId]||{seen:0,right:0,wrong:0,box:1}; r.flag=!r.flag; p[itemId]=r; wr(K.prog,p); return r.flag; },
     exams(){ return rd(K.exams,[]); },
     addExam(e){ const a=S.exams(); a.unshift(e); wr(K.exams,a.slice(0,100)); },
